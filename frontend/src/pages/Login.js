@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { login, register } from '../services/auth';
+import { login, register, handleOAuthCallback } from '../services/auth';
 import './Login.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'https://speech.aiacopilot.com/api/v1';
@@ -16,18 +16,24 @@ function Login({ onLogin }) {
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Check for OAuth errors only (success handled in App.js)
+  // Handle OAuth callback (both success and error)
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
     const oauthError = urlParams.get('error');
     const errorMessage = urlParams.get('message');
 
-    if (oauthError) {
+    if (token) {
+      // OAuth success - store token and notify parent
+      handleOAuthCallback(token, urlParams.get('user_id'), urlParams.get('username'));
+      window.history.replaceState({}, document.title, window.location.pathname);
+      onLogin();
+    } else if (oauthError) {
+      // OAuth error
       setError(errorMessage || 'Authentication failed. Please try again.');
-      // Clear URL params
       window.history.replaceState({}, document.title, window.location.pathname);
     }
-  }, []);
+  }, [onLogin]);
 
   const handleChange = (e) => {
     setFormData({

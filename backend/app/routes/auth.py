@@ -136,11 +136,11 @@ def microsoft_callback():
     if error:
         error_desc = request.args.get('error_description', 'Unknown error')
         current_app.logger.error(f"Microsoft OAuth error: {error} - {error_desc}")
-        return redirect(f'{FRONTEND_URL}/login?error=oauth_failed&message={error_desc}')
+        return redirect(f'{FRONTEND_URL}?error=oauth_failed&message={error_desc}')
 
     code = request.args.get('code')
     if not code:
-        return redirect(f'{FRONTEND_URL}/login?error=no_code')
+        return redirect(f'{FRONTEND_URL}?error=no_code')
 
     try:
         # Exchange code for tokens
@@ -161,7 +161,7 @@ def microsoft_callback():
         access_token = tokens.get('access_token')
         if not access_token:
             current_app.logger.error("No access token in response")
-            return redirect(f'{FRONTEND_URL}/login?error=no_token')
+            return redirect(f'{FRONTEND_URL}?error=no_token')
 
         # Get user info from Microsoft Graph API
         graph_url = 'https://graph.microsoft.com/v1.0/me'
@@ -209,18 +209,18 @@ def microsoft_callback():
                 current_app.logger.info(f"Created new user from Microsoft: {username}")
 
         if not user.is_active:
-            return redirect(f'{FRONTEND_URL}/login?error=account_deactivated')
+            return redirect(f'{FRONTEND_URL}?error=account_deactivated')
 
         # Create JWT token
         jwt_token = create_access_token(identity=user.id)
 
-        # Redirect to frontend login page with token (App.js will handle OAuth callback)
-        return redirect(f'{FRONTEND_URL}/login?token={jwt_token}&user_id={user.id}&username={user.username}')
+        # Redirect to frontend with token
+        return redirect(f'{FRONTEND_URL}?token={jwt_token}&user_id={user.id}&username={user.username}')
 
     except requests.exceptions.RequestException as e:
         current_app.logger.error(f"Microsoft OAuth request error: {str(e)}")
-        return redirect(f'{FRONTEND_URL}/login?error=oauth_request_failed')
+        return redirect(f'{FRONTEND_URL}?error=oauth_request_failed')
     except Exception as e:
         current_app.logger.error(f"Microsoft OAuth error: {str(e)}", exc_info=True)
         db.session.rollback()
-        return redirect(f'{FRONTEND_URL}/login?error=oauth_failed')
+        return redirect(f'{FRONTEND_URL}?error=oauth_failed')

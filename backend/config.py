@@ -1,5 +1,6 @@
 import os
 from datetime import timedelta
+from urllib.parse import quote_plus
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -19,7 +20,7 @@ class Config:
     DB_USER = os.getenv('DB_USER', 'aiaspeech_user')
     DB_PASSWORD = os.getenv('DB_PASSWORD', '')
 
-    SQLALCHEMY_DATABASE_URI = f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+    SQLALCHEMY_DATABASE_URI = f"postgresql+psycopg2://{DB_USER}:{quote_plus(DB_PASSWORD)}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = {
         'pool_size': 10,

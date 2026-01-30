@@ -70,14 +70,14 @@ class Song(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
-    status = db.Column(db.Enum('create', 'submitted', 'completed', 'failed', 'unspecified'), default='create', index=True)
+    status = db.Column(db.Enum('create', 'submitted', 'completed', 'failed', 'unspecified', name='song_status'), default='create', index=True)
     specific_title = db.Column(db.String(500))
     version = db.Column(db.String(10), default='v1')
     star_rating = db.Column(db.Integer, default=0, index=True)
     specific_lyrics = db.Column(db.Text)
     prompt_to_generate = db.Column(db.Text)
     style_id = db.Column(db.Integer, db.ForeignKey('styles.id', ondelete='SET NULL'))
-    vocal_gender = db.Column(db.Enum('male', 'female', 'other'))
+    vocal_gender = db.Column(db.Enum('male', 'female', 'other', name='vocal_gender'))
     voice_name = db.Column(db.String(255))  # Azure Speech voice name
     download_url_1 = db.Column(db.String(1000))
     downloaded_url_1 = db.Column(db.Boolean, default=False)

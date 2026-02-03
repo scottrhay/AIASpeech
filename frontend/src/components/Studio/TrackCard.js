@@ -78,7 +78,8 @@ function TrackCard({ song, onView, onDelete, onDuplicate, onRatingChange, isPlay
     return text.substring(0, maxLength) + '...';
   };
 
-  const hasAudio = song.status === 'completed' && (song.download_url_1 || song.download_url_2);
+  // [EDGE-001 FIX] Use .trim() to handle empty string URLs
+  const hasAudio = song.status === 'completed' && ((song.download_url_1 && song.download_url_1.trim()) || (song.download_url_2 && song.download_url_2.trim()));
 
   const getStatusInfo = (status) => {
     // If status is 'completed' but no audio URLs yet, show "Generating"
@@ -252,16 +253,19 @@ function TrackCard({ song, onView, onDelete, onDuplicate, onRatingChange, isPlay
       {/* Audio Players */}
       {hasAudio && (
         <div className="track-audio-section" onClick={(e) => e.stopPropagation()}>
-          {song.download_url_1 && (
+          {song.download_url_1 && song.download_url_1.trim() && (
             <div className="track-audio-player">
               <span className="audio-label">Track 1</span>
+              {/* [EDGE-002 FIX] Add error handler for audio load failures */}
               <audio
                 controls
                 className="audio-player-compact"
                 controlsList="nodownload"
+                onError={(e) => { const err = e.target.parentElement.querySelector('.audio-error'); if (err) err.style.display = 'block'; }}
               >
                 <source src={song.download_url_1} type="audio/mpeg" />
               </audio>
+              <span className="audio-error" style={{display: 'none', color: '#ef4444', fontSize: '0.7rem'}}>⚠ Audio unavailable</span>
               <button
                 className="download-btn-compact download-btn-primary"
                 title="Download Track 1 - Audio files expire after 15 days!"
@@ -282,16 +286,19 @@ function TrackCard({ song, onView, onDelete, onDuplicate, onRatingChange, isPlay
               </button>
             </div>
           )}
-          {song.download_url_2 && (
+          {song.download_url_2 && song.download_url_2.trim() && (
             <div className="track-audio-player">
               <span className="audio-label">Track 2</span>
+              {/* [EDGE-002 FIX] Add error handler for audio load failures */}
               <audio
                 controls
                 className="audio-player-compact"
                 controlsList="nodownload"
+                onError={(e) => { const err = e.target.parentElement.querySelector('.audio-error'); if (err) err.style.display = 'block'; }}
               >
                 <source src={song.download_url_2} type="audio/mpeg" />
               </audio>
+              <span className="audio-error" style={{display: 'none', color: '#ef4444', fontSize: '0.7rem'}}>⚠ Audio unavailable</span>
               <button
                 className="download-btn-compact download-btn-primary"
                 title="Download Track 2 - Audio files expire after 15 days!"

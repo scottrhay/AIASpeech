@@ -4,6 +4,8 @@ from app import db
 from app.models import Song, Style
 import requests
 import os
+import html  # [SEC-003 FIX] For SSML injection prevention
+import time  # [EDGE-003 FIX] For retry backoff
 
 bp = Blueprint('songs', __name__)
 
@@ -26,10 +28,13 @@ def _synthesize_voice_clip(song):
     # Azure TTS endpoint
     tts_endpoint = f'https://{azure_speech_region}.tts.speech.microsoft.com/cognitiveservices/v1'
 
+    # [SEC-003 FIX] Escape text to prevent SSML injection
+    safe_text = html.escape(text)
+
     # Build SSML
     ssml = f'''<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'>
         <voice name='{voice_name}'>
-            {text}
+            {safe_text}
         </voice>
     </speak>'''
 
@@ -39,22 +44,36 @@ def _synthesize_voice_clip(song):
         'X-Microsoft-OutputFormat': 'audio-16khz-128kbitrate-mono-mp3'
     }
 
+    # [EDGE-003 FIX] Retry with exponential backoff for 429 rate limits
+    max_retries = 3
+    retry_delay = 2  # seconds, doubles each retry
+
     try:
-        current_app.logger.info(f"Synthesizing voice clip for song {song.id} with voice {voice_name}")
-        response = requests.post(tts_endpoint, data=ssml.encode('utf-8'), headers=headers, timeout=60)
+        response = None
+        for attempt in range(max_retries + 1):
+            current_app.logger.info(f"Synthesizing voice clip for song {song.id} with voice {voice_name} (attempt {attempt + 1})")
+            response = requests.post(tts_endpoint, data=ssml.encode('utf-8'), headers=headers, timeout=60)
 
-        # Log the status code for debugging
-        current_app.logger.info(f"Azure TTS API Status: {response.status_code}")
+            # Log the status code for debugging
+            current_app.logger.info(f"Azure TTS API Status: {response.status_code}")
 
-        # Handle specific HTTP error codes
-        if response.status_code == 401:
-            raise Exception('Azure Speech API authentication failed.')
-        elif response.status_code == 403:
-            raise Exception('Azure Speech API access denied.')
-        elif response.status_code == 429:
-            raise Exception('Rate limit exceeded. Please try again later.')
-        elif response.status_code >= 500:
-            raise Exception('Azure Speech API is currently unavailable.')
+            # Handle specific HTTP error codes
+            if response.status_code == 401:
+                raise Exception('Azure Speech API authentication failed.')
+            elif response.status_code == 403:
+                raise Exception('Azure Speech API access denied.')
+            elif response.status_code == 429:
+                if attempt < max_retries:
+                    wait = retry_delay * (2 ** attempt)
+                    current_app.logger.warning(f"Azure TTS 429 rate limit — retrying in {wait}s (attempt {attempt + 1}/{max_retries})")
+                    time.sleep(wait)
+                    continue
+                else:
+                    raise Exception('Rate limit exceeded after retries. Please try again later.')
+            elif response.status_code >= 500:
+                raise Exception('Azure Speech API is currently unavailable.')
+            else:
+                break  # Success or other client error
 
         response.raise_for_status()
 

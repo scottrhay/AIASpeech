@@ -73,9 +73,10 @@ function SongCard({ song, onView, onDelete, onDuplicate }) {
         <p className="song-lyrics">{truncateText(song.specific_lyrics)}</p>
 
         {/* Show audio players and download links for completed songs */}
-        {song.status === 'completed' && (song.download_url_1 || song.download_url_2) && (
+        {/* [EDGE-001 FIX] Use .trim() to handle empty string URLs */}
+        {song.status === 'completed' && ((song.download_url_1 && song.download_url_1.trim()) || (song.download_url_2 && song.download_url_2.trim())) && (
           <div className="song-audio-section" onClick={(e) => e.stopPropagation()}>
-            {song.download_url_1 && (
+            {song.download_url_1 && song.download_url_1.trim() && (
               <div className="audio-track">
                 <div className="audio-header">
                   <span className="track-label">Version 1</span>
@@ -92,13 +93,15 @@ function SongCard({ song, onView, onDelete, onDuplicate }) {
                     </svg>
                   </a>
                 </div>
-                <audio controls className="audio-player">
+                {/* [EDGE-002 FIX] Add error handler for audio load failures */}
+                <audio controls className="audio-player" onError={(e) => { e.target.parentElement.querySelector('.audio-error')?.classList.remove('hidden'); }}>
                   <source src={song.download_url_1} type="audio/mpeg" />
                   Your browser does not support the audio element.
                 </audio>
+                <span className="audio-error hidden" style={{color: '#ef4444', fontSize: '0.75rem'}}>⚠ Audio unavailable</span>
               </div>
             )}
-            {song.download_url_2 && (
+            {song.download_url_2 && song.download_url_2.trim() && (
               <div className="audio-track">
                 <div className="audio-header">
                   <span className="track-label">Version 2</span>
@@ -115,10 +118,12 @@ function SongCard({ song, onView, onDelete, onDuplicate }) {
                     </svg>
                   </a>
                 </div>
-                <audio controls className="audio-player">
+                {/* [EDGE-002 FIX] Add error handler for audio load failures */}
+                <audio controls className="audio-player" onError={(e) => { e.target.parentElement.querySelector('.audio-error')?.classList.remove('hidden'); }}>
                   <source src={song.download_url_2} type="audio/mpeg" />
                   Your browser does not support the audio element.
                 </audio>
+                <span className="audio-error hidden" style={{color: '#ef4444', fontSize: '0.75rem'}}>⚠ Audio unavailable</span>
               </div>
             )}
           </div>

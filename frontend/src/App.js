@@ -12,19 +12,31 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check for OAuth callback params first
-    const urlParams = new URLSearchParams(window.location.search);
-    const token = urlParams.get('token');
+    // [SEC-001 FIX] Check fragment (#) first (secure), then fall back to query string (?) for
+    // backward compatibility during rollout. Fragments never hit server logs or Referer headers.
+    const fragment = window.location.hash.substring(1); // strip leading '#'
+    const fragmentParams = new URLSearchParams(fragment);
+    const queryParams = new URLSearchParams(window.location.search);
+    // Prefer fragment, fall back to query string
+    const token = fragmentParams.get('token') || queryParams.get('token');
+    const userId = fragmentParams.get('user_id') || queryParams.get('user_id');
+    const username = fragmentParams.get('username') || queryParams.get('username');
+
+    console.log('[OAuth Debug] Token found:', !!token);
 
     if (token) {
-      // OAuth callback - store token and mark as authenticated
-      handleOAuthCallback(token, urlParams.get('user_id'), urlParams.get('username'));
-      // Clear URL params
+      console.log('[OAuth Debug] Processing OAuth callback');
+      handleOAuthCallback(token, userId, username);
+      console.log('[OAuth Debug] Token stored in localStorage');
+      // Clear URL params and fragment
       window.history.replaceState({}, document.title, window.location.pathname);
       setIsAuthenticated(true);
+      console.log('[OAuth Debug] Authentication set to true');
     } else {
       // Check if user is authenticated on mount
-      setIsAuthenticated(!!getToken());
+      const existingToken = getToken();
+      console.log('[OAuth Debug] Checking existing token:', !!existingToken);
+      setIsAuthenticated(!!existingToken);
     }
     setIsLoading(false);
   }, []);

@@ -21,7 +21,8 @@ function SongCardEnhanced({ song, onView, onDelete, onDuplicate }) {
   };
 
   const statusBadge = getStatusBadge(song.status);
-  const hasAudio = song.status === 'completed' && (song.download_url_1 || song.download_url_2);
+  // [EDGE-001 FIX] Use .trim() to handle empty string URLs
+  const hasAudio = song.status === 'completed' && ((song.download_url_1 && song.download_url_1.trim()) || (song.download_url_2 && song.download_url_2.trim()));
 
   return (
     <div

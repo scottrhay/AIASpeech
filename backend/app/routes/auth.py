@@ -214,8 +214,9 @@ def microsoft_callback():
         # Create JWT token
         jwt_token = create_access_token(identity=user.id)
 
-        # Redirect to frontend with token
-        return redirect(f'{FRONTEND_URL}?token={jwt_token}&user_id={user.id}&username={user.username}')
+        # [SEC-001 FIX] Use URL fragment (#) instead of query string (?) to keep token out of
+        # server logs, browser history, and Referer headers. Fragments are never sent to the server.
+        return redirect(f'{FRONTEND_URL}#token={jwt_token}&user_id={user.id}&username={user.username}')
 
     except requests.exceptions.RequestException as e:
         current_app.logger.error(f"Microsoft OAuth request error: {str(e)}")

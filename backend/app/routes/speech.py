@@ -2,6 +2,8 @@ from flask import Blueprint, request, jsonify, Response, current_app
 from flask_jwt_extended import jwt_required
 import requests
 import os
+import html  # [SEC-003 FIX] For SSML injection prevention
+import time  # [EDGE-003 FIX] For retry backoff
 
 bp = Blueprint('speech', __name__)
 
@@ -31,10 +33,13 @@ def synthesize_speech():
     # Azure TTS endpoint
     tts_endpoint = f'https://{azure_speech_region}.tts.speech.microsoft.com/cognitiveservices/v1'
 
+    # [SEC-003 FIX] Escape text to prevent SSML injection
+    safe_text = html.escape(text)
+
     # Build SSML
     ssml = f'''<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'>
         <voice name='{voice_name}'>
-            {text}
+            {safe_text}
         </voice>
     </speak>'''
 
@@ -44,17 +49,31 @@ def synthesize_speech():
         'X-Microsoft-OutputFormat': 'audio-16khz-128kbitrate-mono-mp3'
     }
 
-    try:
-        response = requests.post(tts_endpoint, data=ssml.encode('utf-8'), headers=headers, timeout=30)
+    # [EDGE-003 FIX] Retry with exponential backoff for 429 rate limits
+    max_retries = 3
+    retry_delay = 2
 
-        if response.status_code == 401:
-            return jsonify({'error': 'Azure Speech API authentication failed'}), 500
-        elif response.status_code == 403:
-            return jsonify({'error': 'Azure Speech API access denied'}), 500
-        elif response.status_code == 429:
-            return jsonify({'error': 'Rate limit exceeded. Please try again later.'}), 429
-        elif response.status_code >= 500:
-            return jsonify({'error': 'Azure Speech API is unavailable'}), 503
+    try:
+        response = None
+        for attempt in range(max_retries + 1):
+            response = requests.post(tts_endpoint, data=ssml.encode('utf-8'), headers=headers, timeout=30)
+
+            if response.status_code == 401:
+                return jsonify({'error': 'Azure Speech API authentication failed'}), 500
+            elif response.status_code == 403:
+                return jsonify({'error': 'Azure Speech API access denied'}), 500
+            elif response.status_code == 429:
+                if attempt < max_retries:
+                    wait = retry_delay * (2 ** attempt)
+                    current_app.logger.warning(f"Azure TTS 429 rate limit — retrying in {wait}s (attempt {attempt + 1}/{max_retries})")
+                    time.sleep(wait)
+                    continue
+                else:
+                    return jsonify({'error': 'Rate limit exceeded after retries. Please try again later.'}), 429
+            elif response.status_code >= 500:
+                return jsonify({'error': 'Azure Speech API is unavailable'}), 503
+            else:
+                break
 
         response.raise_for_status()
 

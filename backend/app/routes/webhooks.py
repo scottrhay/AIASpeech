@@ -2,8 +2,22 @@ from flask import Blueprint, request, jsonify, current_app
 from app import db
 from app.models import Song
 import json
+import os
+import hmac
 
 bp = Blueprint('webhooks', __name__)
+
+
+def _verify_webhook_secret():
+    """[SEC-002 FIX] Verify webhook secret header to prevent unauthenticated callbacks.
+    If WEBHOOK_SECRET env var is set, the caller must provide it in X-Webhook-Secret header."""
+    secret = os.getenv('WEBHOOK_SECRET')
+    if not secret:
+        # No secret configured — allow (backward compatible, log warning)
+        current_app.logger.warning("WEBHOOK_SECRET not set — webhook endpoint is unauthenticated!")
+        return True
+    provided = request.headers.get('X-Webhook-Secret', '')
+    return hmac.compare_digest(secret, provided)
 
 
 @bp.route('/azure-speech-callback', methods=['POST'])
@@ -33,6 +47,11 @@ def azure_speech_callback():
         }
     }
     """
+    # [SEC-002 FIX] Verify webhook secret before processing
+    if not _verify_webhook_secret():
+        current_app.logger.warning("Azure Speech callback: Invalid or missing webhook secret")
+        return jsonify({'error': 'Unauthorized'}), 401
+
     data = request.get_json()
 
     # Log the raw callback for debugging

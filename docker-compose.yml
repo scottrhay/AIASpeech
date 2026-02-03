@@ -47,8 +47,12 @@ services:
       # App URL
       - APP_URL=https://speech.aiacopilot.com
 
+      # [SEC-002] Webhook secret for callback authentication
+      - WEBHOOK_SECRET=${WEBHOOK_SECRET:-}
+
     volumes:
       - ./logs:/app/logs
+      - ./static/audio:/app/static/audio  # [BUG-002 FIX] Persist audio files across container restarts
 
     networks:
       - root_default
